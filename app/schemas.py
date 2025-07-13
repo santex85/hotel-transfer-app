@@ -58,4 +58,42 @@ class TransferUpdate(BaseModel):
     destination: Optional[str] = None
     flight_number: Optional[str] = None
     comments: Optional[str] = None
-    status: Optional[TransferStatus] = None 
+    status: Optional[TransferStatus] = None
+
+class Token(BaseModel):
+    """
+    Схема для JWT токена.
+    """
+    access_token: str
+    token_type: str
+
+class UserBase(BaseModel):
+    """
+    Базовая схема для пользователя.
+    """
+    username: str = Field(..., min_length=3, description="Имя пользователя")
+
+class UserCreate(UserBase):
+    """
+    Схема для создания пользователя.
+    """
+    password: str = Field(..., min_length=6, description="Пароль")
+
+class UserInDB(UserBase):
+    """
+    Схема пользователя в базе данных.
+    """
+    id: str = Field(..., alias="_id", description="Уникальный идентификатор пользователя")
+    hashed_password: str = Field(..., description="Хешированный пароль")
+
+class UserPublic(UserBase):
+    """
+    Публичная схема пользователя.
+    """
+    id: str = Field(..., alias="_id", description="Уникальный идентификатор пользователя")
+
+class TokenData(BaseModel):
+    """
+    Схема для данных, извлекаемых из JWT токена.
+    """
+    username: str | None = None 

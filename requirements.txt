@@ -3,4 +3,9 @@ uvicorn[standard]
 pydantic
 pydantic-settings
 motor
-python-dotenv 
+python-dotenv
+
+# Зависимости для аутентификации
+passlib[bcrypt]
+python-jose[cryptography]
+python-multipart 

@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from .database import connect_to_mongo, close_mongo_connection
-from .api import router as api_router
+from .api import router as api_router, auth_router
 
 # Создание экземпляра приложения
 app = FastAPI(
@@ -18,9 +18,9 @@ async def startup_event():
 async def shutdown_event():
     await close_mongo_connection(app)
 
-# Подключаем роутер с эндпоинтами для трансферов
-app.include_router(api_router, prefix="/api/v1")
-
+# Подключаем роутеры
+app.include_router(auth_router)  # Роутер для аутентификации
+app.include_router(api_router, prefix="/api/v1")  # Роутер для трансферов
 
 @app.get("/", tags=["Health Check"])
 async def read_root():
