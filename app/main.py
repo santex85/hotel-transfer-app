@@ -1,4 +1,6 @@
 from fastapi import FastAPI
+from .database import connect_to_mongo, close_mongo_connection
+from .api import router as api_router
 
 # Создание экземпляра приложения
 app = FastAPI(
@@ -7,17 +9,18 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# --- Раздел для будущих доработок ---
-# Здесь мы позже добавим обработчики событий для подключения к БД
-# и подключим основной роутер нашего API.
-#
-# from .database import connect_to_mongo, close_mongo_connection
-# app.add_event_handler("startup", connect_to_mongo)
-# app.add_event_handler("shutdown", close_mongo_connection)
-#
-# from .api import router as api_router
-# app.include_router(api_router, prefix="/api/v1")
-# --- Конец раздела ---
+# Добавляем обработчики событий для управления подключением к БД
+@app.on_event("startup")
+async def startup_event():
+    await connect_to_mongo(app)
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await close_mongo_connection(app)
+
+# Подключаем роутер с эндпоинтами для трансферов
+app.include_router(api_router, prefix="/api/v1")
+
 
 @app.get("/", tags=["Health Check"])
 async def read_root():

@@ -6,8 +6,8 @@ class Settings(BaseSettings):
     Считывает переменные из .env файла.
     """
     # Настройки для подключения к MongoDB
-    MONGODB_URL: str = "mongodb://localhost:27017"
-    DATABASE_NAME: str = "hotel_transfer_hub_db"
+    MONGODB_URL: str
+    DATABASE_NAME: str
 
     # Загрузка переменных из .env файла
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding='utf-8')

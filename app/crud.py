@@ -1,19 +1,19 @@
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from .database import get_database
-from .schemas import TransferCreate, TransferStatus
+from typing import List, Optional
+from .schemas import TransferCreate, TransferStatus, TransferPublic
 
 # Название коллекции в MongoDB
 COLLECTION_NAME = "transfers"
 
-async def create_transfer(transfer_data: TransferCreate) -> dict | None:
+async def create_transfer(db: AsyncIOMotorDatabase, transfer_data: TransferCreate) -> TransferPublic:
     """
     Сохраняет новый документ трансфера в базе данных.
 
+    :param db: Экземпляр базы данных MongoDB
     :param transfer_data: Pydantic-модель с данными для нового трансфера.
-    :return: Словарь с данными созданного документа из БД.
+    :return: TransferPublic модель с данными созданного трансфера.
     """
-    db: AsyncIOMotorDatabase = get_database()
     collection = db[COLLECTION_NAME]
 
     # Преобразуем Pydantic модель в словарь
@@ -25,8 +25,35 @@ async def create_transfer(transfer_data: TransferCreate) -> dict | None:
     # Вставляем документ в коллекцию
     result = await collection.insert_one(transfer_dict)
     
-    # Находим и возвращаем только что созданный документ для подтверждения
-    created_document = await collection.find_one({"_id": result.inserted_id})
-    if created_document and "_id" in created_document:
-        created_document["_id"] = str(created_document["_id"])
-    return created_document 
+    # Создаем и возвращаем TransferPublic модель
+    return TransferPublic(
+        _id=str(result.inserted_id),
+        status=TransferStatus.SCHEDULED,
+        **transfer_data.model_dump()
+    )
+
+async def get_transfers(db: AsyncIOMotorDatabase, status: Optional[TransferStatus] = None) -> List[dict]:
+    """
+    Извлекает список документов трансфера из базы данных.
+
+    :param db: Экземпляр базы данных MongoDB
+    :param status: Опциональный фильтр по статусу трансфера.
+    :return: Список словарей с данными трансферов.
+    """
+    collection = db[COLLECTION_NAME]
+    
+    query = {}
+    if status:
+        query["status"] = status.value
+    
+    cursor = collection.find(query)
+    
+    # Собираем все документы из курсора в список
+    transfers = await cursor.to_list(length=100) # Ограничим выборку 100 записями
+    
+    # Преобразуем ObjectId в строки для корректной сериализации
+    for transfer in transfers:
+        if "_id" in transfer:
+            transfer["_id"] = str(transfer["_id"])
+    
+    return transfers 
