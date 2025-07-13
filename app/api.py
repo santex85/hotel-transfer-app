@@ -8,7 +8,7 @@ from . import auth
 from .schemas import (
     TransferCreate, TransferPublic, TransferUpdate, Token, UserInDB, TransferStatus, UserCreate, UserPublic
 )
-from .dependencies import get_current_user, get_db
+from .dependencies import get_current_user_simple
 from .config import settings
 from .database import get_database
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -35,7 +35,7 @@ async def login_for_access_token(request: Request, form_data: OAuth2PasswordRequ
 @auth_router.post("/register", response_model=UserPublic, status_code=status.HTTP_201_CREATED)
 async def create_user_endpoint(request: Request, user_data: UserCreate):
     """
-    Временный эндпоинт для создания пользователя.
+    Эндпоинт для создания пользователя.
     """
     db = get_database(request.app)
     try:
@@ -50,37 +50,42 @@ async def create_user_endpoint(request: Request, user_data: UserCreate):
             detail=str(e)
         )
 
-# --- Роутер для трансферов (теперь защищенный) ---
+# --- Роутер для трансферов (защищенный) ---
 router = APIRouter(
     prefix="/transfers",
     tags=["Transfers"],
-    dependencies=[Depends(get_current_user)]
+    dependencies=[Depends(get_current_user_simple)]
 )
 
 @router.post("/", response_model=TransferPublic, status_code=status.HTTP_201_CREATED)
-async def create_new_transfer(transfer: TransferCreate, db: AsyncIOMotorDatabase = Depends(get_db)):
+async def create_new_transfer(transfer: TransferCreate, request: Request):
+    db = get_database(request.app)
     return await crud.create_transfer(db=db, transfer_data=transfer)
 
 @router.get("/", response_model=List[TransferPublic])
-async def read_transfers(db: AsyncIOMotorDatabase = Depends(get_db), status: Optional[TransferStatus] = None):
+async def read_transfers(request: Request, status: Optional[TransferStatus] = None):
+    db = get_database(request.app)
     return await crud.get_transfers(db=db, status=status)
 
 @router.get("/{transfer_id}", response_model=TransferPublic)
-async def read_single_transfer(transfer_id: str, db: AsyncIOMotorDatabase = Depends(get_db)):
+async def read_single_transfer(transfer_id: str, request: Request):
+    db = get_database(request.app)
     db_transfer = await crud.get_transfer_by_id(db, transfer_id)
     if db_transfer is None:
         raise HTTPException(status_code=404, detail="Трансфер не найден")
     return db_transfer
 
 @router.patch("/{transfer_id}", response_model=TransferPublic)
-async def update_single_transfer(transfer_id: str, transfer_update: TransferUpdate, db: AsyncIOMotorDatabase = Depends(get_db)):
+async def update_single_transfer(transfer_id: str, transfer_update: TransferUpdate, request: Request):
+    db = get_database(request.app)
     updated_transfer = await crud.update_transfer_by_id(db, transfer_id, transfer_update)
     if updated_transfer is None:
         raise HTTPException(status_code=404, detail="Трансфер не найден")
     return updated_transfer
 
 @router.delete("/{transfer_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_single_transfer(transfer_id: str, db: AsyncIOMotorDatabase = Depends(get_db)):
+async def delete_single_transfer(transfer_id: str, request: Request):
+    db = get_database(request.app)
     was_deleted = await crud.delete_transfer_by_id(db, transfer_id)
     if not was_deleted:
         raise HTTPException(status_code=404, detail="Трансфер не найден")

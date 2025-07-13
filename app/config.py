@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     DATABASE_NAME: str
 
     # Настройки для JWT
-    SECRET_KEY: str = secrets.token_hex(32) # Генерирует случайный ключ при каждом запуске
+    SECRET_KEY: str = "your-secret-key-here-change-in-production"  # Фиксированный ключ для разработки
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 

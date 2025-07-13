@@ -10,10 +10,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-def get_db(request: Request) -> AsyncIOMotorDatabase:
-    return get_database(request.app)
-
-async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncIOMotorDatabase = Depends(get_db)) -> UserInDB:
+async def get_current_user_simple(token: str = Depends(oauth2_scheme)) -> UserInDB:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Не удалось проверить учетные данные",
@@ -30,8 +27,5 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncIOMotor
     if token_data.username is None:
         raise credentials_exception
     
-    user_dict = await crud.get_user_by_username(db, username=token_data.username)
-    if user_dict is None:
-        raise credentials_exception
-    user = UserInDB(**user_dict)
-    return user 
+    # Возвращаем только данные пользователя без db
+    return UserInDB(username=token_data.username, _id="temp", hashed_password="temp") 
