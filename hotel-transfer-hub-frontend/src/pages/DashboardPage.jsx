@@ -1,5 +1,5 @@
 // src/pages/DashboardPage.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../services/api';
@@ -11,47 +11,74 @@ function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingTransfer, setEditingTransfer] = useState(null); // Для хранения данных редактируемого трансфера
   const { logout } = useAuth();
   const navigate = useNavigate();
 
-  const fetchTransfers = async () => {
+  const fetchTransfers = useCallback(async () => {
     try {
       setLoading(true);
       const response = await apiClient.get('/api/v1/transfers');
-      console.log('Fetched transfers:', response.data);
-      setTransfers(response.data);
+      // Маппинг _id -> id для совместимости с фронтом
+      const data = response.data.map(t => ({
+        ...t,
+        id: t._id || t.id,
+      }));
+      setTransfers(data);
     } catch (err) {
       setError('Failed to fetch transfers.');
-      console.error(err);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchTransfers();
-  }, []);
+  }, [fetchTransfers]);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
-  const handleTransferCreated = (newTransfer) => {
-    console.log('New transfer created:', newTransfer);
-    console.log('Current transfers before update:', transfers);
-    setTransfers(prevTransfers => {
-      const updatedTransfers = [newTransfer, ...prevTransfers];
-      console.log('Updated transfers:', updatedTransfers);
-      return updatedTransfers;
-    });
+  const handleOpenCreateModal = () => {
+    setEditingTransfer(null);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEditModal = (transfer) => {
+    setEditingTransfer(transfer);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (transferId) => {
+    if (window.confirm('Are you sure you want to delete this transfer?')) {
+      try {
+        await apiClient.delete(`/api/v1/transfers/${transferId}`);
+        setTransfers(prev => prev.filter(t => t.id !== transferId));
+      } catch (err) {
+        setError('Failed to delete transfer.');
+      }
+    }
+  };
+
+  const handleFormSubmit = (updatedOrNewTransfer) => {
+    // Маппинг _id -> id для совместимости с фронтом
+    const transfer = {
+      ...updatedOrNewTransfer,
+      id: updatedOrNewTransfer._id || updatedOrNewTransfer.id,
+    };
+    if (editingTransfer) { // Если было редактирование
+      setTransfers(prev => prev.map(t => t.id === transfer.id ? transfer : t));
+    } else { // Если было создание
+      setTransfers(prev => [transfer, ...prev]);
+    }
     setIsModalOpen(false);
+    setEditingTransfer(null);
   };
 
   if (loading) return <div>Loading...</div>;
   if (error) return <div style={{ color: 'red' }}>{error}</div>;
-
-  console.log('Rendering dashboard with transfers:', transfers);
 
   return (
     <div>
@@ -59,13 +86,9 @@ function DashboardPage() {
         <h1>Transfers</h1>
         <button onClick={handleLogout}>Logout</button>
       </div>
-
+      
       <div style={{ margin: '1rem 0' }}>
-        <button>Today</button>
-        <button>Tomorrow</button>
-        <button>This week</button>
-        <input type="search" placeholder="Search guest name or room number" style={{ marginLeft: '1rem' }} />
-        <button onClick={() => setIsModalOpen(true)} style={{ float: 'right' }}>+ New Transfer</button>
+        <button onClick={handleOpenCreateModal} style={{ float: 'right' }}>+ New Transfer</button>
       </div>
 
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -81,14 +104,14 @@ function DashboardPage() {
         <tbody>
           {transfers.length > 0 ? (
             transfers.map((transfer) => (
-              <tr key={transfer._id || transfer.id} style={{ borderBottom: '1px solid #eee' }}>
-                <td style={{ padding: '8px' }}>{new Date(transfer.transfer_date).toLocaleTimeString()}</td>
+              <tr key={transfer.id} style={{ borderBottom: '1px solid #eee' }}>
+                <td style={{ padding: '8px' }}>{new Date(transfer.transfer_date).toLocaleString()}</td>
                 <td style={{ padding: '8px' }}>{transfer.guest_name}</td>
                 <td style={{ padding: '8px' }}>{`${transfer.pickup_location} to ${transfer.destination}`}</td>
                 <td style={{ padding: '8px' }}>{transfer.status}</td>
                 <td style={{ padding: '8px' }}>
-                  <button>Edit</button>
-                  <button>Cancel</button>
+                  <button onClick={() => handleOpenEditModal(transfer)}>Edit</button>
+                  <button onClick={() => handleDelete(transfer.id)} style={{ marginLeft: '5px' }}>Delete</button>
                 </td>
               </tr>
             ))
@@ -102,8 +125,9 @@ function DashboardPage() {
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
         <TransferForm
-          onTransferCreated={handleTransferCreated}
+          onFormSubmit={handleFormSubmit}
           onError={(err) => setError(err)}
+          initialData={editingTransfer}
         />
       </Modal>
     </div>
