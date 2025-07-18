@@ -6,6 +6,7 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // Всегда отправлять cookie (refresh token)
 });
 
 // Add request interceptor to handle form data for login
